@@ -30,22 +30,14 @@ import javax.swing.text.StyledDocument;
 
 class Y23GUIOutput01 {
 
-	@SuppressWarnings("serial")
-	public static class MyCaret extends BasicCaret {
+	@SuppressWarnings("serial") public static class MyCaret extends BasicCaret {
 		@Override public void install(JTextComponent c) { return; }
 	}
 
-	@SuppressWarnings("serial")
-	public static class JTextPaneNowrap extends JTextPane {
-		int maxWidth = 0;
-		public JTextPaneNowrap() { super(); }
-		@Override public boolean getScrollableTracksViewportWidth() { return false; }
-		@Override public void setSize(Dimension d) {
-			maxWidth = Math.max(maxWidth, getPreferredSize().width);
-			d.width = Math.max(d.width, maxWidth);
-			d.width = Math.max(d.width, SwingUtilities.getUnwrappedParent(this).getSize().width);
-			super.setSize(d);
-		}
+	// https://stackoverflow.com/questions/7156038/how-to-turn-off-jtextpane-line-wrapping
+	@SuppressWarnings("serial") public static class JTextPaneNowrap extends JTextPane {
+		@Override public boolean getScrollableTracksViewportWidth() {  return getPreferredSize().width <= getParent().getSize().width; }
+	    @Override public Dimension getPreferredSize() {  return getUI().getPreferredSize(this); };		
 	}
 	
 	private List<String> textListe;

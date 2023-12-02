@@ -30,22 +30,14 @@ import javax.swing.text.StyledDocument;
 
 class Y23GUIOutput02 {
 
-	@SuppressWarnings("serial")
-	public static class MyCaret extends BasicCaret {
+	@SuppressWarnings("serial") public static class MyCaret extends BasicCaret {
 		@Override public void install(JTextComponent c) { return; }
 	}
 
-	@SuppressWarnings("serial")
-	public static class JTextPaneNowrap extends JTextPane {
-		int maxWidth = 0;
-		public JTextPaneNowrap() { super(); }
-		@Override public boolean getScrollableTracksViewportWidth() { return false; }
-		@Override public void setSize(Dimension d) {
-			maxWidth = Math.max(maxWidth, getPreferredSize().width);
-			d.width = Math.max(d.width, maxWidth);
-			d.width = Math.max(d.width, SwingUtilities.getUnwrappedParent(this).getSize().width);
-			super.setSize(d);
-		}
+	// https://stackoverflow.com/questions/7156038/how-to-turn-off-jtextpane-line-wrapping
+	@SuppressWarnings("serial") public static class JTextPaneNowrap extends JTextPane {
+		@Override public boolean getScrollableTracksViewportWidth() {  return getPreferredSize().width <= getParent().getSize().width; }
+	    @Override public Dimension getPreferredSize() {  return getUI().getPreferredSize(this); };		
 	}
 	
 	private List<String> textListe;
@@ -299,11 +291,6 @@ class Y23GUIOutput02 {
 		switchPage(page);
 	}
     
-	public static void main(String[] args) {
-		Y23GUIOutput01 output = new Y23GUIOutput01("title", true);
-		output.addStep("°cbk;Text1 in °cre;red°cbk; and °cbl;blue°cbk;.");
-	}
-
 	public String color(String colname) {
 		return "°c"+colname+";";
 	}
@@ -316,6 +303,19 @@ class Y23GUIOutput02 {
 		return coloredText.replaceAll("°c[a-z0-9]+;", "");
 	}
 
-	
+
+	public static void main(String[] args) throws Exception {
+		Y23GUIOutput02 output = new Y23GUIOutput02("title", true);
+		output.addStep("etwaslängereinelangeZeile\netwas länger undeinekurze\netwas länger undeinekurze xx yy zz");
+		output.addStep("etwaslängereinelangeZeileetwaslängereinelangeZeileetwaslängereinelangeZeileetwaslängereinelangeZeile xx yy zz\netwas länger undeinekurze\netwas länger undeinekurze");
+		output.addStep("Eine lange Zeile\nundeinekurze");
+		output.addStep("etwaslängereinelangeZeileetwaslängereinelangeZeileetwaslängereinelangeZeileetwaslängereinelangeZeile xx yy zz\netwas länger undeinekurze\netwas länger undeinekurze");
+//		Thread.sleep(1);
+//    	SwingUtilities.invokeLater(() -> 
+//    		output.jt.getPreferredSize()
+//    	);
+//		Thread.sleep(1);
+	}
+
 	
 }

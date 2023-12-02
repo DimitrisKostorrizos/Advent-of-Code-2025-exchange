@@ -23,7 +23,7 @@ public class Y23Day02 {
 	 * 
 	 */
 
-	private static final String INPUT_RX   = "^Game ([0-9]+): ([0-9a-z ,;]+)*+$";
+	private static final String INPUT_RX   = "^Game ([0-9]+): ([0-9a-z ,;]+)$";
 	private static final String INPUT_RX_DICECOLOR   = "^([0-9]+) (red|green|blue)$";
 	
 	enum DCOLOR {red, green, blue}
