@@ -29,7 +29,7 @@ public class Y23Day04 {
 	 * 
 	 */
 
-	private static final String INPUT_RX   = "^Card ([0-9]+): ([ 0-9][0-9]) ([ 0-9][0-9]) ([ 0-9][0-9]) ([ 0-9][0-9]) ([ 0-9][0-9]) | ([ 0-9][0-9]) ([ 0-9][0-9]) ([ 0-9][0-9]) ([ 0-9][0-9]) ([ 0-9][0-9]) ([ 0-9][0-9]) ([ 0-9][0-9]) ([ 0-9][0-9])$";
+	private static final String INPUT_RX   = "^Card \\s*([0-9]+): ([ 0-9]+) [|] ([ 0-9]+)$";
 	
 	public static record InputData(int cardnum, Set<Integer> winNums, Set<Integer> ownNums) {}
 	
@@ -51,23 +51,16 @@ public class Y23Day04 {
 			}
 			if (line.matches(INPUT_RX)) {
 				int cardNum = Integer.parseInt(line.replaceFirst(INPUT_RX, "$1"));
+				String[] winNumArray = line.replaceFirst(INPUT_RX, "$2").trim().split(" +");
+				String[] ownNumArray = line.replaceFirst(INPUT_RX, "$3").trim().split(" +");
 				Set<Integer> winNums = new HashSet();
-				winNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$2")));
-				winNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$3")));
-				winNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$4")));
-				winNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$5")));
-				winNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$6")));
-				
+				for (String winNum:winNumArray) {
+					winNums.add(Integer.parseInt(winNum));
+				}
 				Set<Integer> ownNums = new HashSet();
-				ownNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$7")));
-				winNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$8")));
-				winNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$9")));
-				winNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$10")));
-				winNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$11")));
-				winNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$12")));
-				winNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$13")));
-				winNums.add(Integer.parseInt(line.replaceFirst(INPUT_RX, "$14")));
-				
+				for (String ownNum:ownNumArray) {
+					ownNums.add(Integer.parseInt(ownNum));
+				}
 				return new InputData(cardNum, winNums, ownNums);
 			}
 			else {
@@ -78,9 +71,17 @@ public class Y23Day04 {
 
 	
 	public static void mainPart1(String inputFile) {
+		int sumPoints = 0;
 		for (InputData data:new InputProcessor(inputFile)) {
 			System.out.println(data);
+			data.ownNums.retainAll(data.winNums);
+			int cntWins = data.ownNums.size();
+			System.out.println(cntWins);
+			int winPoints = cntWins == 0 ? 0 : (int) Math.pow(2, cntWins-1);
+			System.out.println(winPoints);
+			sumPoints+=winPoints;
 		}
+		System.out.println(sumPoints);
 	}
 
 	
@@ -91,8 +92,8 @@ public class Y23Day04 {
 
 	public static void main(String[] args) throws FileNotFoundException {
 		System.out.println("--- PART I ---");
-		mainPart1("exercises/day04/Feri/input-example.txt");
-//		mainPart1("exercises/day04/Feri/input.txt");
+//		mainPart1("exercises/day04/Feri/input-example.txt");
+		mainPart1("exercises/day04/Feri/input.txt");            // < 104960
 		System.out.println("---------------");
 		System.out.println("--- PART II ---");
 		mainPart2("exercises/day04/Feri/input-example.txt");
