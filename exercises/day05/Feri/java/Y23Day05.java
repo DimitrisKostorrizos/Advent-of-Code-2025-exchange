@@ -1,6 +1,7 @@
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -136,6 +137,10 @@ public class Y23Day05 {
 			}
 			return null;
 		}
+		@Override public String toString() {
+			return sourceName+"->"+targetName+"["+sourceIndexStart+".."+sourceIndexEnd+"|+"+(targetIndexStart-sourceIndexStart)+"]";
+		}
+		
 	}
 	static record Material(String matName, long index) {
 		@Override public String toString() {return matName+"-"+index; }
@@ -151,11 +156,86 @@ public class Y23Day05 {
 			}
 			return result;
 		}
+		@Override public String toString() {
+			if (offset == 0) {
+				return "["+from+".."+to+"]";				
+			}
+			return "["+from+".."+to+"|+"+offset+"]";
+		}
+		public List<RangeWithOffset> applyRangeMapping(RangeMapping rangeMapping) {
+			List<RangeWithOffset> result = new ArrayList<>();
+			long iFrom = Math.max(from, rangeMapping.sourceIndexStart);
+			long iTo = Math.min(to, rangeMapping.sourceIndexEnd);
+			if (iFrom <= iTo) {
+				result.add(new RangeWithOffset(iFrom, iTo, rangeMapping.targetIndexStart-rangeMapping.sourceIndexStart));
+			}
+			return result;
+		}
+		public RangeWithOffset applyOffset() {
+			return new RangeWithOffset(from+offset, to+offset, 0);
+		}
+		public List<RangeWithOffset> subtract(RangeWithOffset other) {
+			List<RangeWithOffset> result = new ArrayList<>();
+			long toLeft = other.from-1;
+			long fromRight = other.to+1;
+			if ((toLeft >= from) && (toLeft <= to)) {
+				result.add(new RangeWithOffset(from, toLeft, offset));
+			}
+			if ((fromRight <= to) && (fromRight >= from)) {
+				result.add(new RangeWithOffset(fromRight, to, offset));
+			}
+			return result;
+		}
 	}
 	
-	static class MaterialRange {
+	static class MaterialRanges {
 		String matName;
 		List<RangeWithOffset> ranges;
+		public MaterialRanges(String matName) {
+			this.matName = matName;
+			ranges = new ArrayList<>();
+		}
+		public void addRange(RangeWithOffset range) {
+			ranges.add(range);
+		}
+		public void addRanges(Collection<RangeWithOffset> newRanges) {
+			ranges.addAll(newRanges);
+		}
+		public long minFrom() {
+			long result = Long.MAX_VALUE;
+			for (RangeWithOffset range:ranges) {
+				result = Math.min(result, range.from);
+			}
+			return result;
+		}
+		@Override public String toString() {
+			StringBuilder result = new StringBuilder();
+			result.append(matName).append("{");
+			for (RangeWithOffset range:ranges) {
+				result.append(range);
+			}
+			result.append("}");
+			return result.toString();
+		}
+		public void addIdentityMappings(RangeWithOffset sourceRange) {
+			List<RangeWithOffset> idMappings = new ArrayList<>();
+			idMappings.add(sourceRange);
+			for (RangeWithOffset range:ranges) {
+				List<RangeWithOffset> newIdMappings = new ArrayList<>();
+				for (RangeWithOffset idMapping:idMappings) {
+					newIdMappings.addAll(sourceRange.subtract(range));
+				}
+				idMappings = newIdMappings;
+			}
+			ranges.addAll(idMappings);
+		}
+		public void applyOffsets() {
+			List<RangeWithOffset> newRanges = new ArrayList<>();
+			for (RangeWithOffset range:ranges) {
+				newRanges.add(range.applyOffset());
+			}
+			ranges = newRanges;
+		}
 	}
 
 	static class World {
@@ -191,6 +271,26 @@ public class Y23Day05 {
 			}
 			return new Material(rangeMappings.get(0).targetName, sourceMat.index);
 		}
+		
+		private MaterialRanges mapR(MaterialRanges sourceMatR) {
+			List<RangeMapping> rangeMappings = materialRangeMappings.get(sourceMatR.matName);
+			if (rangeMappings == null) {
+				return null;
+			}
+			System.out.println("MAPPING: " + rangeMappings);
+			MaterialRanges result = new MaterialRanges(rangeMappings.get(0).targetName);
+			for (RangeWithOffset sourceRange:sourceMatR.ranges) {
+				for (RangeMapping rangeMapping:rangeMappings) {
+					List<RangeWithOffset> appliedRanges = sourceRange.applyRangeMapping(rangeMapping);
+					result.addRanges(appliedRanges);
+				}
+				result.addIdentityMappings(sourceRange);
+			}
+			result.applyOffsets();
+			return result;
+		}
+		
+		
 		public long getLowestLocation() {
 			long result = Long.MAX_VALUE;
 			for (long seed:seeds) {
@@ -206,20 +306,18 @@ public class Y23Day05 {
 		}
 		public long getLowestSeedRangeLocation() {
 			long result = Long.MAX_VALUE;
+			MaterialRanges matR = new MaterialRanges("seed"); 
 			for (int i=0; i<seeds.size(); i+=2) {
 				long seedFrom = seeds.get(i);
 				long seedTo = seedFrom+seeds.get(i+1)-1;
-				System.out.println("seed from "+seedFrom+" to "+seedTo);
-				for (long seed=seedFrom; seed<=seedTo; seed++) {
-					Material mat = new Material("seed", seed);
-//					System.out.println(mat);
-					while (!mat.matName.equals("location")) {
-						mat = map(mat);
-//						System.out.println(mat);
-					}
-					result = Math.min(result, mat.index);
-				}
+				matR.addRange(new RangeWithOffset(seedFrom, seedTo, 0));
 			}
+			System.out.println(matR);
+			while (!matR.matName.equals("location")) {
+				matR = mapR(matR);
+				System.out.println(matR);
+			}
+			result = Math.min(result, matR.minFrom());
 			return result;
 		}
 	}
@@ -269,8 +367,8 @@ public class Y23Day05 {
 		mainPart1("exercises/day05/Feri/input.txt");             
 		System.out.println("---------------");
 		System.out.println("--- PART II ---");
-		mainPart2("exercises/day05/Feri/input-example.txt");
-//		mainPart2("exercises/day05/Feri/input.txt");     
+//		mainPart2("exercises/day05/Feri/input-example.txt");
+		mainPart2("exercises/day05/Feri/input.txt");     
 		System.out.println("---------------");    // 
 	}
 	
