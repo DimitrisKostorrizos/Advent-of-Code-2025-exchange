@@ -90,20 +90,18 @@ public class MySolution extends MySolutionBase {
 	}
 
 }
+
 /*
+
 ========== Processing sample.txt ==========
-2
----
-2
----
+Part 1: 2
+Part 2: 2
 ========== Processing sample2.txt ==========
-6
----
+Part 2: 6
 ========== Processing input.txt ==========
-18727
----
-18024643846273
----
-00:01:33
+Part 1: 18727
+Part 2: 18024643846273
+==================================
+Time elapsed (hh:mm:ss) 00:01:42
 
  */
