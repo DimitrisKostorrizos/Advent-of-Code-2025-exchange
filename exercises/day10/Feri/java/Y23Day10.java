@@ -113,6 +113,7 @@ public class Y23Day10 {
 		int maxX;
 		int maxY;
 		Pos startPos;
+		Pos previousStartPos;
 		int startDir;
 		Pos currentPos;
 		Pos previousPos;
@@ -155,6 +156,18 @@ public class Y23Day10 {
 					break;
 				}
 			}
+			for (dir = DIR_EAST; dir<=DIR_NORTH; dir++) {
+				if (dir == startDir) {
+					continue;
+				}
+				char road = getRoad(startPos.move(dir));
+				if (nextDir(dir, road) != -1) {
+					int previousDir = dir;
+					previousStartPos = startPos.move(previousDir);
+					previousPos = previousStartPos;
+					break;
+				}
+			}
 		}
 		
 		public boolean reachedStart() {
@@ -174,7 +187,7 @@ public class Y23Day10 {
 			fill = new LinkedHashSet<>(path);
 			dir = startDir;
 			currentPos = startPos;
-			previousPos = currentPos;
+			previousPos = previousStartPos;
 			do {
 				int fillDir = rot(dir, fillRot);
 				Pos fillPos = currentPos.move(fillDir);
@@ -223,8 +236,8 @@ public class Y23Day10 {
 		public void show() {
 			StringBuilder result = new StringBuilder();
 			String lastColor = "b0";
-			for (int y=0; y<maxY; y++) {
-				for (int x=0; x<maxX; x++) {
+			for (int y=-2; y<maxY+2; y++) {
+				for (int x=-2; x<maxX+2; x++) {
 					char c = getRoad(x, y);
 					String color = "b0";
 					Pos pos = new Pos(x,y);
@@ -307,12 +320,13 @@ public class Y23Day10 {
 //		}
 
 		
-		cnt = world.countInnerFields(DIR_ROT_RIGHT);
+		cnt = world.countInnerFields(DIR_ROT_LEFT);
 		System.out.println("CNT: "+cnt);
 		world.show();
 		if (cnt == -1) {
 			System.out.println("LEFT RETURNED -1, TRYING RIGHT");
-			cnt = world.countInnerFields(DIR_ROT_LEFT);
+			cnt = world.countInnerFields(DIR_ROT_RIGHT);
+			world.show();
 		}
 		System.out.println("INNER FIELDS: "+cnt);
 	}
@@ -325,10 +339,10 @@ public class Y23Day10 {
 //		mainPart1("exercises/day10/Feri/input.txt");               
 		System.out.println("---------------");                           
 		System.out.println("--- PART II ---");
-//		mainPart2("exercises/day10/Feri/input-example-2.txt");
+		mainPart2("exercises/day10/Feri/input-example-2.txt");
 //		mainPart2("exercises/day10/Feri/input-example-3.txt");
 //		mainPart2("exercises/day10/Feri/input-example-4.txt");
-		mainPart2("exercises/day10/Feri/input.txt");            // > 300          
+//		mainPart2("exercises/day10/Feri/input.txt");                      
 		System.out.println("---------------");    //
 	}
 	
