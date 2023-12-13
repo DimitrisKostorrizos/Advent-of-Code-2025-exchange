@@ -188,6 +188,21 @@ public class Y23Day05 {
 			}
 			return result;
 		}
+		public List<RangeWithOffset> subtract(RangeMapping rangeMapping) {
+			List<RangeWithOffset> result = new ArrayList<>();
+			long toLeft = rangeMapping.sourceIndexStart-1;
+			long fromRight = rangeMapping.sourceIndexEnd+1;
+			if ((toLeft >= from) && (toLeft <= to)) {
+				result.add(new RangeWithOffset(from, toLeft, offset));
+			}
+			if ((fromRight <= to) && (fromRight >= from)) {
+				result.add(new RangeWithOffset(fromRight, to, offset));
+			}
+			return result;
+		}
+		public boolean overlaps(RangeMapping rangeMapping) {
+			return (rangeMapping.sourceIndexStart <= to) && (rangeMapping.sourceIndexEnd >= from);
+		}
 	}
 	
 	static class MaterialRanges {
@@ -219,15 +234,25 @@ public class Y23Day05 {
 			result.append("}");
 			return result.toString();
 		}
-		public void addIdentityMappings(RangeWithOffset sourceRange) {
+		public void addIdentityMappings(RangeWithOffset sourceRange, List<RangeMapping> rangeMappings) {
 			List<RangeWithOffset> idMappings = new ArrayList<>();
 			idMappings.add(sourceRange);
-			for (RangeWithOffset range:ranges) {
-				List<RangeWithOffset> newIdMappings = new ArrayList<>();
+			boolean idMappingsChanged = true;
+			while (idMappingsChanged) {
+				idMappingsChanged = false;
 				for (RangeWithOffset idMapping:idMappings) {
-					newIdMappings.addAll(sourceRange.subtract(range));
+					for (RangeMapping rangeMapping:rangeMappings) {
+						if (idMapping.overlaps(rangeMapping)) {
+							idMappings.remove(idMapping);
+							idMappings.addAll(idMapping.subtract(rangeMapping));
+							idMappingsChanged = true;
+							break;
+						}
+					}
+					if (idMappingsChanged) {
+						break;
+					}
 				}
-				idMappings = newIdMappings;
 			}
 			ranges.addAll(idMappings);
 		}
@@ -286,7 +311,7 @@ public class Y23Day05 {
 					List<RangeWithOffset> appliedRanges = sourceRange.applyRangeMapping(rangeMapping);
 					result.addRanges(appliedRanges);
 				}
-				result.addIdentityMappings(sourceRange);
+				result.addIdentityMappings(sourceRange, rangeMappings);
 			}
 			result.applyOffsets();
 			return result;
