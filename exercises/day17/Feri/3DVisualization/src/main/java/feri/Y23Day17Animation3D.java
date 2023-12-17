@@ -1,20 +1,26 @@
+package feri;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Scanner;
+import java.util.Set;
 
 /**
  * see: https://adventofcode.com/2023/day/17
  */
-public class Y23Day17 {
+public class Y23Day17Animation3D {
 
-	static Y23GUIOutput17 output;
-
+	
+	static Y23GUIOutput3D17 output;
+	
 	/*
 	 * Example:
 	 * 
@@ -84,8 +90,8 @@ public class Y23Day17 {
 	static final int Z_HORIZONTAL = 0;
 	static final int Z_VERTICAL = 1;
 
-	static record State(int sumHeatLoss, Pos pos) {
-		@Override public String toString() { return "M["+pos+"|"+sumHeatLoss+"]"; }
+	static record State(int sumHeatLoss, Pos pos, Pos fromPos) {
+		@Override public String toString() { return "M["+fromPos+"->"+pos+"|"+sumHeatLoss+"]"; }
 	}
 	
 	static record Pos(int x, int y, int z) {
@@ -140,25 +146,6 @@ public class Y23Day17 {
 				result.append("\n");
 			}
 			return result.toString();
-		}
-		public void show() {
-			StringBuilder result = new StringBuilder();
-			String lastColor = "b0";
-			for (int y=-1; y<=maxY; y++) {
-				for (int x=-1; x<=maxX; x++) {
-					char c = (char) ('0'+get(x, y));
-					String color = "b0";
-//						color = "byellow";
-//						color = "bred";
-					if (!lastColor.equals(color)) {
-						lastColor = color;
-						result.append(output.style(color));
-					}
-					result.append(c);
-				}
-				result.append("\n");
-			}
-			output.addStep(result.toString());
 		}
 		boolean isValidPos(int x, int y) {
 			return (x>=0)&&(x<maxX)&&(y>=0)&&(y<maxY);
@@ -293,12 +280,13 @@ public class Y23Day17 {
 			searchPaths = new PriorityQueue<>((s1,s2)->Integer.compare(s1.sumHeatLoss,s2.sumHeatLoss));
 			Pos startPosH = new Pos(0,0,Z_HORIZONTAL);
 			Pos startPosV = new Pos(0,0,Z_VERTICAL);
-			searchPaths.add(new State(0, startPosH));
-			searchPaths.add(new State(0, startPosV));
+			searchPaths.add(new State(0, startPosH, startPosH));
+			searchPaths.add(new State(0, startPosV, startPosV));
 			minimalHeatLoss.put(startPosH, 0);
 			minimalHeatLoss.put(startPosV, 0);
 			while (true) {
 				State currentSearch = searchPaths.poll();
+				show3D(currentSearch);
 //				output.addStep(currentSearch+"\n"+showMinimalMoves());
 //				System.out.println(currentSearch);
 //				if (currentSearch.pos.toString().contains("2,1,0")) {
@@ -312,14 +300,66 @@ public class Y23Day17 {
 					Integer minHL = minimalHeatLoss.get(move.targetPos);
 					if ((minHL==null) || (minHL>currentSearch.sumHeatLoss+move.heatloss)) {
 						minimalHeatLoss.put(move.targetPos, currentSearch.sumHeatLoss+move.heatloss);
-						searchPaths.add(new State(currentSearch.sumHeatLoss+move.heatloss, move.targetPos));
+						searchPaths.add(new State(currentSearch.sumHeatLoss+move.heatloss, move.targetPos, currentSearch.pos));
 					}
 				}
 			}
 		}
+		static final double SCALEZ = 2.0;
+		Map<Pos, Pos> shortestPathsList = new LinkedHashMap<>();
+		void show3D(State state) {
+			shortestPathsList.put(state.pos, state.fromPos);
+			Map<Pos, Pos> currentShortestPathsList = recursiveGetShortestPath(state.pos, 0);
+			List<Y23GUIOutput3D17.DDDObject> points = new ArrayList<>();
+			for (Pos pos:heatlossDirections.keySet()) {
+				List<Move> moves = heatlossDirections.get(pos);
+				int type = 3;
+				if (shortestPathsList.containsKey(pos)) {
+					type = 1;
+				}
+				if (currentShortestPathsList.containsKey(pos)) {
+					type = 0;
+				}
+				Y23GUIOutput3D17.DDDObject point = new Y23GUIOutput3D17.DDDObject(pos.toString(), pos.x, pos.y, SCALEZ*pos.z, 0.1, type);
+				points.add(point);
+				for (Move move:moves) {
+					Pos shortestPath = shortestPathsList.get(move.targetPos);
+					Pos currentShortestPath = currentShortestPathsList.get(move.targetPos);
+					int lType = 33;
+					double lSize = 0.005;
+					if ((shortestPath != null) && pos.equals(shortestPath)) {
+						lType = 31;
+						lSize = 0.02;
+					}
+					if ((currentShortestPath != null) && pos.equals(currentShortestPath)) {
+						lType = 30;
+						lSize = 0.02;
+					}
+					Y23GUIOutput3D17.DDDObject line = new Y23GUIOutput3D17.DDDLineObject(pos.toString()+move.targetPos.toString(), pos.x, pos.y, SCALEZ*pos.z, move.targetPos.x, move.targetPos.y, SCALEZ*move.targetPos.z, lSize, lType);
+					points.add(line);
+				}
+			}
+			if (output.scale == 1) {
+				output.adjustScale(points);
+			}
+			output.addStep(state.toString(), points);
+		}
+		private Map<Pos, Pos> recursiveGetShortestPath(Pos pos, int cnt) {
+			Pos predecessor = shortestPathsList.get(pos);
+			if ((predecessor==null) || predecessor.equals(pos)) {
+				Map<Pos, Pos> result = new LinkedHashMap<>();
+				result.put(pos, pos);
+				return result;
+			}
+			Map<Pos, Pos> result = recursiveGetShortestPath(predecessor, cnt+1);
+			result.put(pos, predecessor);
+			return result;
+		}
 	}
 
 	public static void mainPart1(String inputFile) {
+		output = new Y23GUIOutput3D17("Day 08 Part II", true);
+
 //		output = new Y23GUIOutput17("2023 day 17 Part I", true);
 		World world = new World();
 		for (InputData data:new InputProcessor(inputFile)) {
@@ -346,15 +386,19 @@ public class Y23Day17 {
 	}
 
 
-	public static void main(String[] args) throws FileNotFoundException {
+	public static void main(String[] args) throws FileNotFoundException, URISyntaxException {
+		URL url;
 		System.out.println("--- PART I ---");
+//		url = Y23Day17Animation3D.class.getResource("/resources/input/aoc23day17/input-example.txt");
+//		mainPart1(new File(url.toURI()).toString());
+		mainPart1("../input-example.txt");
 //		mainPart1("exercises/day17/Feri/input-example.txt");
-		mainPart1("exercises/day17/Feri/input.txt");               
+//		mainPart1("exercises/day17/Feri/input.txt");               
 		System.out.println("---------------");                           
 		System.out.println("--- PART II ---");
 //		mainPart2("exercises/day17/Feri/input-example.txt");
 //		mainPart2("exercises/day17/Feri/input-example-2.txt");
-		mainPart2("exercises/day17/Feri/input.txt");
+//		mainPart2("exercises/day17/Feri/input.txt");
 		System.out.println("---------------");    
 	}
 	
