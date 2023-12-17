@@ -326,7 +326,7 @@ public class Y23Day17 {
 			world.addRow(data.row);
 		}
 		world.init();
-		System.out.println(world);
+//		System.out.println(world);
 		world.createHeatlossDirectionGraph();
 		int heatLoss = world.findMinimalHeatLoss();
 		System.out.println("MINIMAL HEATLOSS: "+heatLoss);
@@ -339,7 +339,7 @@ public class Y23Day17 {
 			world.addRow(data.row);
 		}
 		world.init();
-		System.out.println(world);
+//		System.out.println(world);
 		world.createUltraHeatlossDirectionGraph();
 		int heatLoss = world.findMinimalHeatLoss();
 		System.out.println("MINIMAL HEATLOSS: "+heatLoss);		
@@ -349,10 +349,11 @@ public class Y23Day17 {
 	public static void main(String[] args) throws FileNotFoundException {
 		System.out.println("--- PART I ---");
 //		mainPart1("exercises/day17/Feri/input-example.txt");
-//		mainPart1("exercises/day17/Feri/input.txt");               
+		mainPart1("exercises/day17/Feri/input.txt");               
 		System.out.println("---------------");                           
 		System.out.println("--- PART II ---");
 //		mainPart2("exercises/day17/Feri/input-example.txt");
+//		mainPart2("exercises/day17/Feri/input-example-2.txt");
 		mainPart2("exercises/day17/Feri/input.txt");
 		System.out.println("---------------");    
 	}
