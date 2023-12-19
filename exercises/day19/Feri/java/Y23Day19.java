@@ -97,12 +97,14 @@ public class Y23Day19 {
 				throw new RuntimeException("invalid condition '"+str+"'");
 			}
 		}
-
+		public boolean hasCondition() {
+			return category != '*'; 
+		}
 		@Override public String toString() {
-			if (category == '*') {
-				return acceptName; 
+			if (hasCondition()) {
+				return Character.toString(category)+Character.toString(operator)+value+":"+acceptName;
 			}
-			return Character.toString(category)+Character.toString(operator)+value+":"+acceptName;
+			return acceptName; 
 		}
 
 		public boolean check(Part part) {
@@ -207,33 +209,184 @@ public class Y23Day19 {
 			System.out.println(part+" -> "+nextRuleName);
 			return nextRuleName.equals("A");
 		}
+		public long calcAlternatives() {
+			Alternatives alts = new Alternatives();
+			System.out.println(alts.calcNumberOfAlternatives());
+			return recursiveCalcAlternatives(alts, "in");
+		}
+		private long recursiveCalcAlternatives(Alternatives alts, String ruleName) {
+			if (ruleName.equals("R")) {
+				return 0;
+			}
+			if (ruleName.equals("A")) {
+				return alts.calcNumberOfAlternatives();
+			}
+			long result = 0;
+			Rule rule = rulesByName.get(ruleName);
+			Alternatives remainingAlts = alts;
+			for (Condition condition:rule.conditions) {
+				if (!condition.hasCondition()) {
+					result += recursiveCalcAlternatives(remainingAlts, condition.acceptName);
+				}
+				else {
+					Alternatives conditionAlts = remainingAlts.filterCondition(condition.category, condition.operator, condition.value);
+					if (conditionAlts != null) {
+						result += recursiveCalcAlternatives(conditionAlts, condition.acceptName); 
+					}
+					remainingAlts = remainingAlts.removeCondition(condition);
+					if (remainingAlts == null) {
+						return result;
+					}
+				}
+			}
+			throw new RuntimeException("rule not catiching all cases: "+rule);
+		}
 	}
 	
+	static record NumRange(int from, int to) {
+		public boolean overlaps(NumRange other) {
+			return (from>=other.to) && (to<=other.from);
+		}
+		public List<NumRange> intersect(NumRange other) {
+			List<NumRange> result = new ArrayList<>();
+			int maxFrom = Math.max(from, other.from);
+			int minTo = Math.min(to, other.to);
+			if (maxFrom<=minTo) {
+				result.add(new NumRange(maxFrom, minTo));
+			}
+			return result;
+		}
 
+		@Override public String toString() {
+			return from+".."+to;
+		}
+		public long calcNumberOfAlternatives() {
+			return to-from+1;
+		}
+	}
+	
+	static record NumRanges(List<NumRange> numRanges) {
+
+		public long calcNumberOfAlternatives() {
+			long result = 0;
+			for (NumRange nr:numRanges) {
+				result += nr.calcNumberOfAlternatives();
+			}
+			return result;
+		}}
+	
+	static class Alternatives {
+		NumRanges xAlternatives;
+		NumRanges mAlternatives;
+		NumRanges aAlternatives;
+		NumRanges sAlternatives;
+		public Alternatives() {
+			xAlternatives = initNumRanges(1,4000);
+			mAlternatives = initNumRanges(1,4000);
+			aAlternatives = initNumRanges(1,4000);
+			sAlternatives = initNumRanges(1,4000);
+		}
+		public Alternatives removeCondition(Condition condition) {
+			if (condition.operator == '<') {
+				return filterCondition(condition.category, '>', condition.value-1);
+			}
+			return filterCondition(condition.category, '<', condition.value+1);
+		}
+		public Alternatives(NumRanges xAlternatives, NumRanges mAlternatives, NumRanges aAlternatives, NumRanges sAlternatives) {
+			this.xAlternatives = xAlternatives;
+			this.mAlternatives = mAlternatives;
+			this.aAlternatives = aAlternatives;
+			this.sAlternatives = sAlternatives;
+		}
+		public Alternatives filterCondition(char category, char operator, int value) {
+			NumRanges currentNRS = get(category);
+			NumRange condNR;
+			if (operator == '<') {
+				condNR = new NumRange(1,value-1);
+			}
+			else {
+				condNR = new NumRange(value, 4000);
+			}
+			NumRanges filteredNRS = condNRS.filter(condNR);
+			if (filteredNRS.calcNumberOfAlternatives()==0) {
+				return null;
+			}
+			Alternatives result = new Alternatives(xAlternatives, mAlternatives, aAlternatives, sAlternatives);
+			result.set(category, filteredNRS);
+			return result;
+		}
+		private NumRanges initNumRanges(int from, int to) {
+			List<NumRange> nrList = new ArrayList<>();
+			nrList.add(new NumRange(from, to));
+			return new NumRanges(nrList);
+		}
+		NumRanges get(char category) {
+			switch (category) {
+			case 'x': return xAlternatives;
+			case 'm': return mAlternatives;
+			case 'a': return aAlternatives;
+			case 's': return sAlternatives;
+			default: throw new RuntimeException("invalid category '"+category+"'");
+			}
+		}
+		void set(char category, NumRanges nrs) {
+			switch (category) {
+			case 'x': 
+				xAlternatives = nrs;
+				break;
+			case 'm': 
+				mAlternatives = nrs;
+				break;
+			case 'a': 
+				aAlternatives = nrs;
+				break;
+			case 's': 
+				sAlternatives = nrs;
+				break;
+			default: throw new RuntimeException("invalid category '"+category+"'");
+			}
+		}
+		public long calcNumberOfAlternatives() {
+			return xAlternatives.calcNumberOfAlternatives() * mAlternatives.calcNumberOfAlternatives() * aAlternatives.calcNumberOfAlternatives() * sAlternatives.calcNumberOfAlternatives(); 
+		}
+	}
+	
+	
 	public static void mainPart1(String inputFile) {
 		World world = new World();
 		for (InputData data:new InputProcessor(inputFile)) {
-			System.out.println(data);
+//			System.out.println(data);
 			if (data.isRule()) {
 				world.addRule(data.ruleName, data.ruleText);
 			}
 			else {
 				world.addPart(data.partText);
 			}
-			List<Part> acceptedParts = world.filterAcceptedParts();
-			System.out.println(acceptedParts);
-			int sum = 0;
-			for (Part part:acceptedParts) {
-				sum += part.sum();
-			}
-			System.out.println("ACCEPTEDSUM: "+sum);
 		}
+		List<Part> acceptedParts = world.filterAcceptedParts();
+//		System.out.println(acceptedParts);
+		int sum = 0;
+		for (Part part:acceptedParts) {
+			sum += part.sum();
+		}
+		System.out.println("ACCEPTEDSUM: "+sum);
 	}
 
 	
 
 
 	public static void mainPart2(String inputFile) {
+		World world = new World();
+		for (InputData data:new InputProcessor(inputFile)) {
+//			System.out.println(data);
+			if (data.isRule()) {
+				world.addRule(data.ruleName, data.ruleText);
+			}
+			else {
+				world.addPart(data.partText);
+			}
+		}
+		System.out.println(world.calcAlternatives());
 	}
 
 
