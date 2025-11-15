@@ -1,11 +1,11 @@
-# Advent of Code 2024 exchange
+# Advent of Code 2025 exchange
 
-This repository is used to exchange ideas and code related to the [Advent of Code 2024](https://adventofcode.com/2024)
+This repository is used to exchange ideas and code related to the [Advent of Code 2025](https://adventofcode.com/2025)
 
 
 ## Join Advent of Code
 
-1. Join **Advent of Code** [here](https://adventofcode.com/2024/auth/login)
+1. Join **Advent of Code** [here](https://adventofcode.com/2025/auth/login)
    * You can join with your Github account
 
 ## Choosing a Development Language / IDE
