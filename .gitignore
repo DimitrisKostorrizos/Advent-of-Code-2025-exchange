@@ -10,3 +10,11 @@ exercises/day03/carlos/Day03
 *.iml
 .idea
 out
+/.vs
+/exchange/day01/Dimitris Kostorrizos/Y25Day01/.vs
+/exchange/day01/Dimitris Kostorrizos/Y25Day01/bin/Debug/net10.0
+/exchange/day01/Dimitris Kostorrizos/Y25Day01/obj/Debug/net10.0
+/exchange/day01/Dimitris Kostorrizos/Y25Day01/obj
+/exercises/day01/Dimitris Kostorrizos/Y25Day01/.vs
+/exercises/day01/Dimitris Kostorrizos/Y25Day01/obj
+/exercises/day01/Dimitris Kostorrizos/Y25Day01/bin/Debug/net10.0
