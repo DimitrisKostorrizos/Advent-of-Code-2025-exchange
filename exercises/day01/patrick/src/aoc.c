@@ -29,7 +29,7 @@
 
 struct data* read_data(const char *path);
 
-int day = 25;
+int day = 1;
 int part = 2;
 FILE *solution_out;
 #ifdef INTERACTIVE
