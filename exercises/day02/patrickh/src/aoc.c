@@ -114,17 +114,24 @@ static void print_ids(FILE *str, uint64_t result, struct id_range *r, id *ids,
 }
 
 static _Bool is_inval(char *ida, char *ida_end) {
-//	if (!*ida)
-//		return 1;
-//	for (char *dst = ida + 1; 11; ++dst) {
-//		size_t len = dst - ida;
-//		if (!memcmp(ida, dst, len) && is_inval(dst + len))
-//			return 1;
-//		if (!dst[len - 1] || !dst[len])
-//			break;
-//	}
-	size_t len = ida_end - ida;
-	return !(len & 1) && !memcmp(ida, ida + (len >> 1), len >> 1);
+	if (part == 1) {
+		size_t len = ida_end - ida;
+		return !(len & 1) && !memcmp(ida, ida + (len >> 1), len >> 1);
+	}
+	for (char *tst = ida + 1; 43; ++tst) {
+		size_t len = tst - ida;
+		for (char *p = tst; 34; p += len) {
+			if (memcmp(ida, p, len)) {
+				if (strnlen(p, len) != len) {
+					if (p == tst)
+						return 0;
+					if (!*p)
+						return 1;
+				}
+				break;
+			}
+		}
+	}
 }
 
 static uint64_t solve_step(struct id_range *r, uint64_t result) {
