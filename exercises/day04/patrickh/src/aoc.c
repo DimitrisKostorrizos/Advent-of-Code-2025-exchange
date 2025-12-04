@@ -30,6 +30,7 @@
 
 struct data* read_data(const char *path);
 
+int year = 2025;
 int day = 4;
 int part = 2;
 FILE *solution_out;
@@ -78,16 +79,35 @@ static void print_step(FILE *str, uint64_t result, char *format, ...) {
 
 static void print(FILE *str, struct data *data, uint64_t result, uint64_t add_result) {
 	if (result) {
-		fprintf(str, "%sresult=%"I64"u\n%s", STEP_HEADER, result, STEP_BODY);
+		fprintf(str, "%sresult=%"I64"u\n", STEP_HEADER, result);
 	} else {
-		fputs(STEP_BODY, str);
+		fputs(STEP_HEADER, str);
 	}
 	if (!do_print && !interactive) {
 		return;
 	}
-	fprintf(str, "Remove %"I64"u rolls of paper\n", add_result);
+	fprintf(str, "Remove %"I64"u rolls of paper\n%s", add_result, STEP_BODY);
 	for (idx l = 0; l < data->line_count; ++l) {
-		fwrite(data->world + (l * data->line_len), 1, data->line_len, str);
+		char *line = data->world + (l * data->line_len);
+		char *end = line + data->line_len;
+		char last = '.';
+		for (; line < end; ++line) {
+			if (*line != last) {
+				last = *line;
+				switch (last) {
+				case '@':
+					fputs(RESET FC_YELLOW, str);
+					break;
+				case 'x':
+					fputs(RESET FC_RED, str);
+					break;
+				case '.':
+					fputs(RESET, str);
+					break;
+				}
+			}
+			fputc(last, str);
+		}
 		fputc('\n', str);
 	}
 	fputs(interactive ? STEP_FINISHED : RESET, str);

@@ -87,6 +87,7 @@ void* reallocarray(void*ptr, size_t nmemb, size_t size);
 
 #ifdef INTERACTIVE
 
+extern int year;
 extern int day;
 extern int part;
 extern FILE *solution_out;

@@ -305,6 +305,8 @@ static void show() {
 				buf_end_pos += need;
 				break;
 			}
+			if (eol == end)
+				break;
 			pos = eol + 1;
 		}
 		if (decorations) {
@@ -445,7 +447,7 @@ static void restore_term() {
 }
 #endif // AC_POSIX
 
-static inline void init_acts();
+static inline void init_acts(void);
 static void act_next_world(unsigned);
 
 static int refill_world() {
@@ -468,7 +470,7 @@ static int refill_world() {
 			world_data_size = c + 1 - world_data;
 			break;
 		} else if (world_data[0] == EM_C) {
-			world_data_size = r;
+			world_data_size = 1;
 			return -1;
 		}
 		world_data_size += r;
@@ -500,7 +502,7 @@ static int refill_world() {
 			if (!eol)
 				eol = end;
 			size_t chars;
-			text_end(c, rbuf_end_pos, c - eol, &chars);
+			text_end(c, eol - c, SIZE_MAX, &chars);
 			if (chars > max_pos.x) {
 				max_pos.x = chars;
 			}
@@ -579,9 +581,6 @@ void interact(char *path, int force_interactive) {
 	orig_term = term;
 	term.c_iflag &= ~(IGNBRK | INPCK | ISTRIP);
 	term.c_iflag |= IGNPAR | ICRNL;
-#	ifdef IUTF8
-	term.c_iflag |= IUTF8;
-#	endif // IUTF8
 	term.c_oflag |= ONLRET;
 #	ifdef ONLCR
 	term.c_oflag |= ONLCR;
@@ -645,7 +644,7 @@ void interact(char *path, int force_interactive) {
 	dprintf(out, "initilized terminal\n");
 	dprintf(out,
 			HIDE_CURSOR RESET //
-			TITLE(Advent of Code 2024 day %d part %d (%s)), day, part,
+			TITLE(Advent of Code %d day %d part %d (%s)), year, day, part,
 			puzzle_file);
 	init_acts();
 	solution_out = fopen(data_file, "wb");
@@ -656,12 +655,14 @@ void interact(char *path, int force_interactive) {
 #endif // AC_POSIX
 #if AOC_COMPAT & AC_POSIX
 	pthread_create(&thrd, 0, start_solve, puzzle_file);
+	struct timespec wait = { .tv_nsec = 10000000 /* 10ms */};
+	nanosleep(&wait, 0); /* give the solver a little time */
 #elif defined __STDC_NO_THREADS__
 	printf("no threads are supported, you have to wait a until I solved the puzzle\n");
 	solve(puzzle_file);
 #else // __STDC_NO_THREADS__
 	thrd_create(&thrd, start_solve, puzzle_file);
-	struct timespec wait = { .tv_nsec = 10000000 /* 100ms */};
+	struct timespec wait = { .tv_nsec = 10000000 /* 10ms */};
 	nanosleep(&wait, 0); /* give the solver a little time */
 #endif // __STDC_NO_THREADS__
 	world_data_max_size = 1024;
@@ -1183,7 +1184,7 @@ void cmd_clear(int argc, char **argv) {
 #define bind_command(bind, acti, help) \
 	bind_(bind, cmd, acti, 0, help)
 
-static void init_acts() {
+static void init_acts(void) {
 	bind_action("\4", exit, FLAG_CTRL, "Crlt+D:\n"
 			"exit the application");
 
