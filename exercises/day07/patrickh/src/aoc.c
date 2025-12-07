@@ -45,13 +45,14 @@ int interactive = 0;
 typedef size_t idx;
 typedef off_t pos;
 
-#define NUM_MAX UINT16_MAX
-typedef uint16_t num;
+#define NUM_MAX UINT64_MAX
+typedef uint64_t num;
 
 struct data {
 	size_t line_count;
 	size_t line_length;
 	char *world;
+	num *counts;
 };
 
 static int do_print = 1;
@@ -85,13 +86,19 @@ static void print_space(FILE *str, uint64_t count) {
 }
 #endif
 
-static void print(FILE *str, struct data *data, uint64_t result) {
-	if (result)
-		fprintf(str, "%sresult=%"I64"u\n%s", STEP_HEADER, result, STEP_BODY);
-	else
-		fputs(STEP_BODY, str);
+static void print(FILE *str, struct data *data, uint64_t result, num left, num right, num old) {
+	if (result || 1)
+		fprintf(str, "%sresult=%"I64"u\n", STEP_HEADER, result);
 	if (!do_print && !interactive)
 		return;
+	if (right)
+		fprintf(str, "%"I64"u->%"I64"u+%"I64"u\n%s", (uint64_t) old,
+				(uint64_t) left, (uint64_t) right, STEP_BODY);
+	else if (left)
+		fprintf(str, "%"I64"u->%"I64"u\n%s", (uint64_t) old, (uint64_t) left,
+				STEP_BODY);
+	else
+		fputs(STEP_BODY, str);
 	for (idx l = 0; l < data->line_count; ++l) {
 		fwrite(data->world + l * data->line_length, 1, data->line_length, str);
 		fputc('\n', str);
@@ -102,29 +109,65 @@ static void print(FILE *str, struct data *data, uint64_t result) {
 const char* solve(const char *path) {
 	struct data *data = read_data(path);
 	uint64_t result = part == 2;
-	print(solution_out, data, result);
+	print(solution_out, data, result, 0, 0, 0);
 	char *a = memchr(data->world, 'S', data->line_length);
-	char *end = data->world + data->line_length * data->line_count;
-	while (106) {
-		do {
-			if (a[data->line_length] == '^') {
-				if (a[data->line_length + 1] != '.')
-					abort();
-				if (a[data->line_length - 1] != '.'
-						&& a[data->line_length - 2] != '+' && a[-1] != '|')
-					abort();
-				a[data->line_length - 1] = '|';
-				a[data->line_length] = '+';
-				a[data->line_length + 1] = '|';
-				++result;
-			} else {
-				a[data->line_length] = '|';
-			}
-			a = memchr(a + 1, '|', end - a - 1);
-		} while (a);
-		print(solution_out, data, result);
+	if (part == 2) {
+		data->counts = calloc(data->line_count * data->line_length,
+				sizeof(num));
+		data->counts[a - data->world] = 1;
 	}
-	print(solution_out, data, result);
+	char *end = data->world + data->line_length * data->line_count;
+	do {
+		if (a[data->line_length] == '^') {
+			if (a[data->line_length + 1] != '.')
+				abort();
+			if (a[data->line_length - 1] != '.'
+					&& a[data->line_length - 2] != '+' && a[-1] != '|')
+				abort();
+			if (a < end - data->line_length) {
+				a[data->line_length - 1] = '|';
+				a[data->line_length + 1] = '|';
+				a[data->line_length] = '+';
+			}
+			if (part == 1) {
+				++result;
+				print(solution_out, data, result, 0, 0, 0);
+			} else {
+				num cur = data->counts[a - data->world];
+				result += cur;
+				if (a < end - data->line_length) {
+					if ((data->counts[a - data->world + data->line_length - 1] +=
+							cur) < cur)
+						abort();
+					if (data->counts[a - data->world + data->line_length + 1])
+						abort();
+					data->counts[a - data->world + data->line_length + 1] = cur;
+				}
+				print(solution_out, data, result,
+						data->counts[a - data->world + data->line_length - 1],
+						cur,
+						cur);
+			}
+		} else if (a < end - data->line_length) {
+			a[data->line_length] = '|';
+			if (part == 2) {
+				num cur = data->counts[a - data->world];
+				data->counts[a - data->world + data->line_length] += cur;
+				print(solution_out, data, result,
+						data->counts[a - data->world + data->line_length], 0,
+						cur);
+			} else {
+				print(solution_out, data, result, 0, 0, 0);
+			}
+		}
+		if (part == 1) {
+			a = memchr(a + 1, '|', end - a - 1);
+		} else {
+			for (++a; a != end && !data->counts[a - data->world]; ++a)
+				;
+		}
+	} while (part == 1 ? !!a : a != end);
+	print(solution_out, data, result, 0, 0, 0);
 	free(data);
 	return u64toa(result);
 }
@@ -281,9 +324,9 @@ int main(int argc, char **argv) {
 		if (argc > 4) {
 			print_help: ;
 #ifdef INTERACTIVE
-			fprintf(stderr, "usage: %s [[non-]interactive] [p1|p2] [DATA]", me);
+			fprintf(stderr, "usage: %s [[non-]interactive|[no-]print] [p1|p2] [DATA]", me);
 #else
-			fprintf(stderr, "usage: %s [non-interactive] [p1|p2] [DATA]", me);
+			fprintf(stderr, "usage: %s [non-interactive|[no-]print] [p1|p2] [DATA]", me);
 
 #endif
 			return 1;
@@ -292,7 +335,13 @@ int main(int argc, char **argv) {
 		if (!strcmp("help", argv[idx])) {
 			goto print_help;
 		}
-		if (!strcmp("non-interactive", argv[idx])) {
+		if (!strcmp("no-print", argv[idx])) {
+			idx++;
+			do_print = 0;
+		} else if (!strcmp("print", argv[idx])) {
+			idx++;
+			do_print = 1;
+		} else if (!strcmp("non-interactive", argv[idx])) {
 			idx++;
 #ifdef INTERACTIVE
 			force_non_interactive = 1;
