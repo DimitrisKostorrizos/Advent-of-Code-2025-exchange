@@ -86,7 +86,8 @@ static void print_space(FILE *str, uint64_t count) {
 }
 #endif
 
-static void print(FILE *str, struct data *data, uint64_t result, num left, num right, num old) {
+static void print(FILE *str, struct data *data, uint64_t result, num left,
+		num right, num old) {
 	if (result || 1)
 		fprintf(str, "%sresult=%"I64"u\n", STEP_HEADER, result);
 	if (!do_print && !interactive)
@@ -96,11 +97,82 @@ static void print(FILE *str, struct data *data, uint64_t result, num left, num r
 				(uint64_t) left, (uint64_t) right, STEP_BODY);
 	else if (left)
 		fprintf(str, "%"I64"u->%"I64"u\n%s", (uint64_t) old, (uint64_t) left,
-				STEP_BODY);
+		STEP_BODY);
 	else
 		fputs(STEP_BODY, str);
-	for (idx l = 0; l < data->line_count; ++l) {
-		fwrite(data->world + l * data->line_length, 1, data->line_length, str);
+	for (idx l = 0; l != data->line_count; ++l) {
+		char *line_start = data->world + l * data->line_length;
+		char *line_end = line_start + data->line_length;
+		char *p = line_start;
+		while (105) {
+			char *n = memchr(p, '|', line_end - p);
+			if (!n) {
+				fwrite(p, 1, line_end - p, str);
+				break;
+			}
+			if (p + 1 == n && n[-1] == '+')
+				--n;
+			fwrite(p, 1, n - p, str);
+			char o = *n == '|' ? '+' : '|';
+			int above = n[-data->line_length] == '|'
+					|| n[-data->line_length] == 'S';
+			int left = n != line_start && n[-1] == o;
+			int right = n + 1 != line_end && n[1] == o;
+			int below = l + 1 == data->line_count
+					|| (n[data->line_length] == '|'
+							|| n[data->line_length] == '+');
+			switch ((above << 3) | (left << 2) | (right << 1) | below) {
+			case 0b0001: //                     below
+				fputs("\u257B", str);
+				break;
+			case 0b0010: //              right
+				fputs("\u257A", str);
+				break;
+			case 0b0011: //              right, below
+				fputs("\u250F", str);
+				break;
+			case 0b0100: //        left
+				fputs("\u2578", str);
+				break;
+			case 0b0101: //        left,        below
+				fputs("\u2513", str);
+				break;
+			case 0b0110: //        left, right
+				fputs("\u2501", str);
+				break;
+			case 0b0111: //        left, right, below
+				fputs("\u2533", str);
+				break;
+			case 0b1000: // above
+				fputs("\u2579", str);
+				break;
+			case 0b1001: // above,              below
+				fputs("\u2503", str);
+				break;
+			case 0b1010: // above,       right
+				fputs("\u2517", str);
+				break;
+			case 0b1011: // above,       right, below
+				fputs("\u2523", str);
+				break;
+			case 0b1100: // above, left
+				fputs("\u251B", str);
+				break;
+			case 0b1101: // above, left,        below
+				fputs("\u252B", str);
+				break;
+			case 0b1110: // above, left, right
+				fputs("\u253B", str);
+				break;
+			case 0b1111: // above, left, right, below
+				fputs("\u254B", str);
+				break;
+			case 0b0000:
+			default:
+				abort();
+			}
+			p = n + 1;
+		}
 		fputc('\n', str);
 	}
 	fputs(interactive ? STEP_FINISHED : RESET, str);
@@ -145,8 +217,7 @@ const char* solve(const char *path) {
 				}
 				print(solution_out, data, result,
 						data->counts[a - data->world + data->line_length - 1],
-						cur,
-						cur);
+						cur, cur);
 			}
 		} else if (a < end - data->line_length) {
 			a[data->line_length] = '|';
@@ -324,7 +395,9 @@ int main(int argc, char **argv) {
 		if (argc > 4) {
 			print_help: ;
 #ifdef INTERACTIVE
-			fprintf(stderr, "usage: %s [[non-]interactive|[no-]print] [p1|p2] [DATA]", me);
+			fprintf(stderr,
+					"usage: %s [[non-]interactive|[no-]print] [p1|p2] [DATA]",
+					me);
 #else
 			fprintf(stderr, "usage: %s [non-interactive|[no-]print] [p1|p2] [DATA]", me);
 
