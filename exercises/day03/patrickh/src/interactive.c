@@ -96,6 +96,8 @@ static void write_buf();
 static int ensure_buf(size_t free_space);
 static int ensure_rbuf(size_t free_space, size_t end_allocated_space);
 
+static char* text_end(char *c, size_t len, size_t max_text, size_t *real_text);
+
 static int header_display_lines = 4;
 static int footer_display_lines = 2;
 static int side_columns = 2;
@@ -113,6 +115,8 @@ static void recalc_header_footer_sizes() {
 		side_columns = 2;
 		decorations = 1;
 	}
+	if (getenv("ADD_HEAD_LINES"))
+		header_display_lines += atoi(getenv("ADD_HEAD_LINES"));
 	char *end = memchr(world_data, STX_C, world_data_size);
 	if (!end || (end != world_data && world_data[0] != SOH_C)) {
 		header_display_lines++; /* incomplete world */
@@ -121,20 +125,35 @@ static void recalc_header_footer_sizes() {
 	if (world_data[0] != STX_C) {
 		char *p = world_data;
 		while (p && p + 1 < end) {
+			size_t real_len;
+			char *np = memchr(p + 1, '\n', end - p);
+			if (!np)
+				np = end;
+			text_end(p + 1, np - p - 1, UINT64_MAX, &real_len);
 			++header_display_lines;
-			p = memchr(p + 1, '\n', end - p);
+			if (real_len > display_sizes.y)
+				header_display_lines += real_len / display_sizes.y;
+			p = np;
 		}
 	} else if (world_data[0] != SOH_C) {
 		header_display_lines++;
 	}
 	char *p = memchr(world_data, ETX_C, world_data_size);
-	if (p && p[1] != FF_C) {
-		++footer_display_lines; /* add two for the first footer line */
-		while (footer_display_lines < 16) {
-			++footer_display_lines;
-			p = memchr(p + 1, '\n', world_data + world_data_size - p);
-			if (!p) {
-				break;
+	if (p) {
+		char *eot = memchr(p, EOT_C, world_data + world_data_size - p);
+		if (!eot)
+			eot = memchr(p, FF_C, world_data + world_data_size - p);
+		if (!eot)
+			eot = world_data + world_data_size;
+		if (p + 1 < eot) {
+			while (133) {
+				p = memchr(p + 1, '\n', eot - p);
+				if (!p) {
+					if (eot[-1] != '\n')
+						++footer_display_lines;
+					break;
+				}
+				++footer_display_lines;
 			}
 		}
 	}
@@ -192,6 +211,46 @@ static char* text_end(char *c, size_t len, size_t max_text, size_t *real_text) {
 	if (real_text)
 		*real_text = rt + len;
 	return c + len;
+}
+
+static char* show_line(size_t l, char *pos, char *end) {
+	if (decorations) {
+		addstr("\u2502");
+	}
+	if (l == SIZE_MAX || l + cur.y <= max_pos.y) {
+		char *eol = memchr(pos, '\n', end - pos);
+		if (!eol)
+			eol = end;
+		do {
+			if (cur.x != min_pos.x) {
+				pos = text_end(pos, eol - pos, cur.x - min_pos.x, 0);
+			}
+			char *e = text_end(pos, eol - pos, display_sizes.x - side_columns,
+					0);
+			size_t need = e - pos;
+			ensure_buf(need);
+			memcpy(buf + buf_end_pos, pos, need);
+			buf_end_pos += need;
+			break;
+			pos = eol + 1;
+		} while (pos - 1 != end);
+	}
+	if (decorations) {
+		while (109) {
+			size_t need = snprintf(buf + buf_end_pos,
+					buf_capacity - buf_end_pos,
+					RESET ERASE_END_OF_LINE FRMT_CURSOR_SET_COLUMN "\u2502",
+					(int) display_sizes.x);
+			if (ensure_buf(need)) {
+				continue;
+			}
+			buf_end_pos += need;
+			break;
+		}
+	} else {
+		addstr(RESET "\n");
+	}
+	return pos;
 }
 
 static void show() {
@@ -271,60 +330,25 @@ static void show() {
 		}
 		addstr("\u2510");
 	}
-	char *end = memchr(pos, ETX_C, world_data + world_data_size - pos);
-	if (!end)
-		end = memchr(pos, EOT_C, world_data + world_data_size - pos);
-	if (!end) {
-		end = world_data + world_data_size;
-		if (end[-1] == EM_C)
-			--end;
-		if (end[-1] == FF_C)
-			--end;
+	char *end_text = memchr(pos, EOT_C, world_data + world_data_size - pos);
+	if (!end_text) {
+		end_text = world_data + world_data_size;
+		if (end_text[-1] == EM_C)
+			--end_text;
+		if (end_text[-1] == FF_C)
+			--end_text;
 	}
+	char *end = memchr(pos, ETX_C, world_data + world_data_size - pos);
+	if (!end || end > end_text)
+		end = end_text;
 	for (size_t y = min_pos.y; y < cur.y; y++, pos++)
 		pos = memchr(pos, '\n', end - pos);
 	for (size_t l = 0;
 			l < display_sizes.y - header_display_lines - footer_display_lines;
 			++l) {
-		if (decorations) {
-			addstr("\u2502");
-		}
-		if (l + cur.y <= max_pos.y) {
-			char *eol = memchr(pos, '\n', end - pos);
-			if (!eol)
-				eol = end;
-			while (82) {
-				if (cur.x != min_pos.x) {
-					pos = text_end(pos, eol - pos, cur.x - min_pos.x, 0);
-				}
-				char *e = text_end(pos, eol - pos,
-						display_sizes.x - side_columns, 0);
-				size_t need = e - pos;
-				ensure_buf(need);
-				memcpy(buf + buf_end_pos, pos, need);
-				buf_end_pos += need;
-				break;
-			}
-			pos = eol + 1;
-		}
-		if (decorations) {
-			while (109) {
-				size_t need = snprintf(buf + buf_end_pos,
-						buf_capacity - buf_end_pos,
-						RESET FRMT_CURSOR_SET_COLUMN "\u2502",
-						(int) display_sizes.x);
-				if (ensure_buf(need)) {
-					continue;
-				}
-				buf_end_pos += need;
-				break;
-			}
-		} else {
-			addstr(RESET "\n");
-		}
+		pos = show_line(l, pos, end);
 	}
-	if (footer_display_lines != (decorations ?
-			2 : 0 /*TODO improve statement? */)) {
+	if (*end == ETX_C) {
 		if (decorations) {
 			addstr("\u251C");
 			for (size_t i = 1; i < display_sizes.x - 1; ++i) {
@@ -332,7 +356,11 @@ static void show() {
 			}
 			addstr("\u2524");
 		}
-		// TODO print footer
+		pos = end + 1;
+		end = end_text;
+		for (size_t l = decorations ? 2 : 0; l < footer_display_lines; ++l) {
+			pos = show_line(SIZE_MAX, pos, end);
+		}
 	}
 	if (decorations) {
 		addstr("\u2514");
@@ -341,6 +369,7 @@ static void show() {
 		}
 		addstr("\u2518");
 	}
+	addstr(ERASE_END_OF_DISPLAY);
 	write_buf();
 }
 
@@ -445,7 +474,7 @@ static void restore_term() {
 }
 #endif // AC_POSIX
 
-static inline void init_acts();
+static inline void init_acts(void);
 static void act_next_world(unsigned);
 
 static int refill_world() {
@@ -468,7 +497,7 @@ static int refill_world() {
 			world_data_size = c + 1 - world_data;
 			break;
 		} else if (world_data[0] == EM_C) {
-			world_data_size = r;
+			world_data_size = 1;
 			return -1;
 		}
 		world_data_size += r;
@@ -495,23 +524,20 @@ static int refill_world() {
 				--end;
 		} else
 			--end;
-		while (422) {
+		do {
 			char *eol = memchr(c, '\n', end - c);
 			if (!eol)
 				eol = end;
 			size_t chars;
-			text_end(c, rbuf_end_pos, c - eol, &chars);
+			text_end(c, eol - c, SIZE_MAX, &chars);
 			if (chars > max_pos.x) {
 				max_pos.x = chars;
 			}
 			if (c + 1 < end) {
 				max_pos.y++;
 			}
-			if (eol == end) {
-				break;
-			}
 			c = eol + 1;
-		}
+		} while (c - 1 != end);
 	}
 	end = memchr(end, EOT_C, world_data + world_data_size - end);
 	if (end) {
@@ -579,9 +605,6 @@ void interact(char *path, int force_interactive) {
 	orig_term = term;
 	term.c_iflag &= ~(IGNBRK | INPCK | ISTRIP);
 	term.c_iflag |= IGNPAR | ICRNL;
-#	ifdef IUTF8
-	term.c_iflag |= IUTF8;
-#	endif // IUTF8
 	term.c_oflag |= ONLRET;
 #	ifdef ONLCR
 	term.c_oflag |= ONLCR;
@@ -645,7 +668,7 @@ void interact(char *path, int force_interactive) {
 	dprintf(out, "initilized terminal\n");
 	dprintf(out,
 			HIDE_CURSOR RESET //
-			TITLE(Advent of Code 2024 day %d part %d (%s)), day, part,
+			TITLE(Advent of Code %d day %d part %d (%s)), year, day, part,
 			puzzle_file);
 	init_acts();
 	solution_out = fopen(data_file, "wb");
@@ -656,12 +679,14 @@ void interact(char *path, int force_interactive) {
 #endif // AC_POSIX
 #if AOC_COMPAT & AC_POSIX
 	pthread_create(&thrd, 0, start_solve, puzzle_file);
+	struct timespec wait = { .tv_nsec = 10000000 /* 10ms */};
+	nanosleep(&wait, 0); /* give the solver a little time */
 #elif defined __STDC_NO_THREADS__
 	printf("no threads are supported, you have to wait a until I solved the puzzle\n");
 	solve(puzzle_file);
 #else // __STDC_NO_THREADS__
 	thrd_create(&thrd, start_solve, puzzle_file);
-	struct timespec wait = { .tv_nsec = 10000000 /* 100ms */};
+	struct timespec wait = { .tv_nsec = 10000000 /* 10ms */};
 	nanosleep(&wait, 0); /* give the solver a little time */
 #endif // __STDC_NO_THREADS__
 	world_data_max_size = 1024;
@@ -1183,7 +1208,7 @@ void cmd_clear(int argc, char **argv) {
 #define bind_command(bind, acti, help) \
 	bind_(bind, cmd, acti, 0, help)
 
-static void init_acts() {
+static void init_acts(void) {
 	bind_action("\4", exit, FLAG_CTRL, "Crlt+D:\n"
 			"exit the application");
 

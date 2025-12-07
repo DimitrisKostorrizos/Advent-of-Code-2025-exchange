@@ -1,0 +1,61 @@
+ifeq ($(CC),)
+	CC = gcc
+endif
+
+TARGET = aoc
+
+ifeq ($(BUILD_MODE),)
+	BUILD_MODE = debug
+endif
+ifeq ($(BUILD_MODE),debug)
+	CFLAGS += -g -Og
+else ifeq ($(BUILD_MODE),run)
+	CFLAGS += -Ofast -Wstrict-overflow=5
+else
+    $(error Build mode $(BUILD_MODE) not supported by this Makefile)
+endif
+
+CFLAGS += -Wall -Wstrict-overflow=5 -pedantic
+LDFLAGS += -lm
+
+BIN_ROOT = bin/
+
+BINARY = $(BIN_ROOT)$(BUILD_MODE)/
+
+SOURCE = src/
+
+OBJS = $(BINARY)hash.o
+
+ifeq ($(INTERACTIVE),)
+	 INTERACTIVE = 0
+endif
+ifeq ($(INTERACTIVE),1)
+	OBJS += $(BINARY)interactive-aoc.o $(BINARY)interactive.o
+	RMOBJ = $(BINARY)aoc.o
+	CFLAGS += -DINTERACTIVE
+else
+	RMOBJ = $(BINARY)interactive-aoc.o
+	OBJS += $(BINARY)aoc.o
+endif
+
+TARGET_WITH_PATH = $(BINARY)$(TARGET)
+
+all:	$(TARGET)
+
+$(TARGET):	$(TARGET_WITH_PATH)
+
+$(TARGET_WITH_PATH):	$(OBJS)
+	if test -f $(RMOBJ); then rm $(RMOBJ); fi
+	$(CC) -o $(TARGET_WITH_PATH) $^ $(LDFLAGS)
+	echo FINISHED $(TARGET)
+
+$(BINARY)%.o:	$(SOURCE)%.c
+	mkdir -p `dirname $@`
+	$(CC) -x c -c $(CFLAGS) -o $@ $<
+
+$(BINARY)interactive-%.o:	$(SOURCE)%.c
+	mkdir -p `dirname $@`
+	$(CC) -x c -c $(CFLAGS) -o $@ $<
+
+clean:
+	rm -fr $(BIN_ROOT)

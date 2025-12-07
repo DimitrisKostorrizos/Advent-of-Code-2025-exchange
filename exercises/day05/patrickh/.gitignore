@@ -1,0 +1,8 @@
+/.settings
+/.project
+/.cproject
+/bin
+/out.*
+/*.gif
+/*.tape
+/rsrc

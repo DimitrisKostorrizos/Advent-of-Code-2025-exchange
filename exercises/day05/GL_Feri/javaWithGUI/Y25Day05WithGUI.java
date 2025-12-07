@@ -1,6 +1,7 @@
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -15,8 +16,6 @@ public class Y25Day05WithGUI {
 	
 	static Y25GUIOutput05 output;
 
-
-	
 	public static record InputData(Long from, Long to, Long id) {
 		public boolean isRange() {
 			return from != null && to != null;
@@ -151,13 +150,25 @@ public class Y25Day05WithGUI {
 			return result;
 		}
 		public String rangeAsString(Range range) {
+			return rangeAsString(range, null);
+		}
+		public String rangeAsString(Range range, String col) {
+			if (range==null) {
+				return "";
+			}
 			int startPos = sortedNumbers.indexOf(range.from) * 2;
 			int endPos = sortedNumbers.indexOf(range.to) * 2;
 			String result = padl("", startPos, ' ');
+			if (col != null) {
+				result += col;
+			}
 			if (endPos == startPos) { 
 				result += "|";
 			} else {
 				result += "[" + padl("]", endPos - startPos, '-');
+			}
+			if (col != null) {
+				result += output.color("0");
 			}
 			return result.toString();
 		}
@@ -249,7 +260,98 @@ public class Y25Day05WithGUI {
 			}
 			output.addStep(result.toString());
 		}
+		public void animateMergeRanges(List<Y25Day05WithGUI.Range> ranges) {
+			String colHighlighted = output.style("bye");
+			String colNormal = output.style("c0");
+			
+			String header = createHeader();
+			
+			output(header, Collections.emptyList());
+			
+			List<Range> mergedRanges = new ArrayList<>();
+			mergedRanges.add(null);
+			for (Range newRange:ranges) {
+				for (int i=0; i<=mergedRanges.size(); i++) {
+					Range mergedRange = (i<mergedRanges.size() ? mergedRanges.get(i) : null);
+					if ((mergedRange != null) && mergedRange.overlaps(newRange)) {
+						newRange = newRange.merge(mergedRange);
+						List<String> temp = new ArrayList<>();
+						for (int j=0;j<i;j++) {
+							temp.add(rangeAsString(mergedRanges.get(j)));
+						}
+						String oldRangeString = rangeAsString(mergedRanges.get(i));
+						String newRangeString = rangeAsString(newRange, colHighlighted);
+						String overlap = overlapString(oldRangeString, newRangeString);
+						temp.add(overlap);
+						for (int j=i+1;j<mergedRanges.size();j++) {
+							temp.add(rangeAsString(mergedRanges.get(j)));
+						}
+						output(header, temp);
+						mergedRanges.remove(i);
+						i-=2;
+					}
+					else {
+						List<String> temp = new ArrayList<>();
+						for (int j=0;j<i;j++) {
+							temp.add(rangeAsString(mergedRanges.get(j)));
+						}
+						String oldRangeString = i < mergedRanges.size() ? rangeAsString(mergedRanges.get(i)) : "";
+						String newRangeString = rangeAsString(newRange, colHighlighted);
+						String overlap = overlapString(oldRangeString, newRangeString);
+						temp.add(overlap);
+						for (int j=i+1;j<mergedRanges.size();j++) {
+							temp.add(rangeAsString(mergedRanges.get(j)));
+						}
+						output(header, temp);
+					}
+				}
+				mergedRanges.add(newRange);
+			}
+			output(header, mergedRanges.stream().map(r -> rangeAsString(r)).toList());
+		}
 		
+		private String colorMiddle(String text, String colHighlighted, String colNormal) {
+			String middle = text.trim();
+			String result = text.replace(middle, colHighlighted + middle + colNormal);
+			return result;
+		}
+		private String overlapString(String str1, String str2) {
+			int pos1 = 0;
+			int pos2 = 0;
+			StringBuilder result = new StringBuilder();
+			while ((pos1 < str1.length()) && (pos2 < str2.length())) {
+				char c1 = str1.charAt(pos1);
+				pos1++;
+				if (c1 == '°') {
+					result.append(c1);
+					while (c1 != ';') {
+						c1 = str1.charAt(pos1);
+						pos1++;
+						result.append(c1);
+					}
+					continue;
+				}
+				char c2 = str2.charAt(pos2);
+				pos2++;
+				if (c2 == '°') {
+					result.append(c2);
+					while (c2 != ';') {
+						c2 = str2.charAt(pos2);
+						pos2++;
+						result.append(c2);
+					}
+					pos1--;
+					continue;
+				}
+				if (c2 != ' ') {
+					result.append(c2);
+				} else {
+					result.append(c1);
+				}
+			}
+			result.append(str1.substring(pos1)).append(str2.substring(pos2));
+			return result.toString();
+		}
 	}
 	
 	public static void mainPart1(String inputFile) throws FileNotFoundException {
@@ -292,36 +394,22 @@ public class Y25Day05WithGUI {
 				ranges.add(data.getRange());
 			}
 		}
-		List<Range> mergedRanges = new ArrayList<>();
-		for (Range newRange:ranges) {
-			int mergedIdx = 0;
-			while (mergedIdx < mergedRanges.size()) {
-				Range mergedRange = mergedRanges.get(mergedIdx);
-				if (mergedRange.overlaps(newRange)) {
-					mergedRanges.remove(mergedIdx);
-					newRange = newRange.merge(mergedRange);
-				} else {
-					mergedIdx++;
-				}
-			}
-			mergedRanges.add(newRange);
-		}
-		long sum = 0;
-		for (Range range:mergedRanges) {
-			sum += range.size();
-		}
-		System.out.println("sum fresh IDs: " + sum);
+
+		RangeRenderer renderer = new RangeRenderer(ranges);
+		renderer.animateMergeRanges(ranges);
+		
 	}
 
 
 	public static void main(String[] args) throws FileNotFoundException {
 		System.out.println("--- PART I ---");
-		mainPart1("exercises/day05/Feri/input-example.txt");
+//		mainPart1("exercises/day05/Feri/input-example.txt");
 //		mainPart1("exercises/day05/Feri/input.txt");
 		System.out.println("---------------");
 		System.out.println("--- PART II ---");
 //		mainPart2("exercises/day05/Feri/input-example.txt");
-//		mainPart2("exercises/day05/Feri/input.txt");    // not 31884165731
+		mainPart2("exercises/day05/Feri/input-example-2.txt");
+//		mainPart2("exercises/day05/Feri/input.txt");   
 		System.out.println("---------------");    // 
 	}
 	

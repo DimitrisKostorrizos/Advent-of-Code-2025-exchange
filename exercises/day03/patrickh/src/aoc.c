@@ -30,6 +30,7 @@
 
 struct data* read_data(const char *path);
 
+int year = 2025;
 int day = 3;
 int part = 2;
 FILE *solution_out;
@@ -101,8 +102,8 @@ static void print_batteries(FILE *str, uint64_t result, char *batteries,
 	unsigned val1 = batteries[idx1];
 	unsigned sum = (val0 - '0') * 10 + val1 - '0';
 	fprintf(str, "%.*s"BOLD"%c"DEF_INTENSE"%.*s"BOLD"%c"DEF_INTENSE"%s\n"
-	/*		*/"idx0=%"I64"u val0=%c\n"
-	/*		*/"idx1=%"I64"u val1=%c\n"
+	/*		*/"idx0=%"I64"u; val0=%c\n"
+	/*		*/"idx1=%"I64"u; val1=%c\n"
 	/*		*/"sum: %u\n", (int) idx0, batteries, val0, (int) (idx1 - idx0 - 1), batteries + idx0 + 1,
 			val1, batteries + idx1 + 1, (uint64_t) idx0, val0, (uint64_t) idx1,
 			val1, sum);
@@ -110,28 +111,33 @@ static void print_batteries(FILE *str, uint64_t result, char *batteries,
 }
 
 static void print_batteries_p2(FILE *str, uint64_t result, char *batteries,
-		idx idx[12], uint64_t sum) {
-	if (result) {
-		fprintf(str, "%sresult=%"I64"u\n%s", STEP_HEADER, result, STEP_BODY);
-	} else {
-		fputs(STEP_BODY, str);
-	}
-	if (!do_print && !interactive) {
+		idx idx[12], char *val) {
+	if (result || 1)
+		fprintf(str, "%sresult=%"I64"u\n", STEP_HEADER, result);
+	else
+		fputs(STEP_HEADER, str);
+	if (!do_print && !interactive)
 		return;
-	}
 	char *last = batteries;
-	for (int i = 0; i < 12; ++i) {
+	for (int i = 0; i < 12 && (!i || idx[i]); ++i) {
 		char *next = batteries + idx[i];
 		if (next - last > INT_MAX)
 			abort();
-		fprintf(str, "%.*s"BOLD"%c"DEF_INTENSE, (int) (next - last), next,
-				(unsigned) *next);
+		fprintf(str, FC_GRAY"%.*s"RESET BOLD"%c"RESET, (int) (next - last),
+				last, (unsigned) *next);
 		last = next + 1;
 	}
-	for (int i = 0; i < 12; ++i)
-		fprintf(str, "\nidx%2d=%2"I64"u val%2d=%c", i, idx[i], i,
-				(unsigned) batteries[idx[i]]);
-	fprintf(str, "\nsum=%"I64"u\n", sum);
+	fprintf(str, FC_GRAY"%s"RESET"\n%s", last, STEP_BODY);
+	for (int i = 0; i < 12; ++i) {
+		if (!i || idx[i])
+			fprintf(str, "%2d: ([%2"I64"u]=%c)\n", i, idx[i],
+					(unsigned) batteries[idx[i]]);
+		else if (interactive)
+			fprintf(str, "%2d:\n", i);
+		else
+			break;
+	}
+	fprintf(str, "%svalue: %s\n", STEP_FOOTER, val);
 	fputs(interactive ? STEP_FINISHED : RESET, str);
 }
 
@@ -156,23 +162,22 @@ static uint64_t solve_step(char *batteries, uint64_t result) {
 }
 
 static uint64_t solve_step_p2(char *batteries, uint64_t result) {
-	idx max_idx[12];
+	idx max_idx[12] = { 0 };
 	char max_val[13] = { 0 };
-	idx cur_max_idx = IDX_MAX; // unsigned overflow is well defined
+	_Static_assert((idx) 0 - (idx) 1 > (idx) 0, "Error!");
 	for (int mi = 0; mi < 12; ++mi) {
-		char cur_max_val = 0;
-		for (char *i = batteries + cur_max_idx + (idx) 1; i[11 - mi]; ++i) {
-			if (*i > cur_max_val) {
-				cur_max_val = *i;
-				cur_max_idx = i - batteries;
+		for (char *i = batteries + (mi ? max_idx[mi - 1] + 1 : 0);
+				i[11 - mi]; ++i) {
+			if (*i > max_val[mi]) {
+				max_val[mi] = *i;
+				max_idx[mi] = i - batteries;
+				print_batteries_p2(solution_out, result, batteries, max_idx, max_val);
 			}
 		}
-		max_idx[mi] = cur_max_idx;
-		max_val[mi] = cur_max_val;
 	}
 	long long int sum = strtoll(max_val, NULL, 10);
 	result += sum;
-	print_batteries_p2(solution_out, result, batteries, max_idx, sum);
+	print_batteries_p2(solution_out, result, batteries, max_idx, max_val);
 	return result;
 }
 

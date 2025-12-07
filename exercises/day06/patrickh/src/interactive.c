@@ -129,8 +129,8 @@ static void recalc_header_footer_sizes() {
 				np = end;
 			text_end(p + 1, np - p - 1, UINT64_MAX, &real_len);
 			++header_display_lines;
-			if (real_len > display_sizes.y)
-				header_display_lines += real_len / display_sizes.y;
+			if (real_len > display_sizes.x)
+				header_display_lines += real_len / display_sizes.x;
 			p = np;
 		}
 	}

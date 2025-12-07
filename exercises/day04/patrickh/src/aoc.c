@@ -78,7 +78,7 @@ static void print_step(FILE *str, uint64_t result, char *format, ...) {
 #endif
 
 static void print(FILE *str, struct data *data, uint64_t result, uint64_t add_result) {
-	if (result) {
+	if (result || 1) {
 		fprintf(str, "%sresult=%"I64"u\n", STEP_HEADER, result);
 	} else {
 		fputs(STEP_HEADER, str);

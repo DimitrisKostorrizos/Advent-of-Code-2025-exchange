@@ -29,8 +29,7 @@
 /* start of the current steps (additional/optional) footer */
 #define STEP_FOOTER       (interactive ? ETX : "")
 /* finish transferring text, now comes some optional data or STEP_FINISHED
- * 1: struct coordinate world_min_coordinate (defaults to (0|0))
- * if  */
+ * 1: struct coordinate world_min_coordinate (defaults to (0|0)) */
 #define STEP_FIN_TEXT     (interactive ? EOT : "")
 /* marks the end of the current step */
 #define STEP_FINISHED     (interactive ? FF : "")
