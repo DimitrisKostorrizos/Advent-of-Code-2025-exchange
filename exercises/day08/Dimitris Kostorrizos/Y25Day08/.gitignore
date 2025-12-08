@@ -1,0 +1,16 @@
+.DS_Store
+/.vscode/
+exercises/day03/carlos/Day03
+/bin/
+/.classpath
+/.project
+/.settings/
+/.idea/
+/out/
+*.iml
+.idea
+out
+/.vs
+/obj
+/bin
+/Input.txt
